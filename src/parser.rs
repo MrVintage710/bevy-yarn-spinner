@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, result};
+use std::{collections::VecDeque, result, fmt::Debug};
 
 #[derive(Debug, Clone, Copy)]
 pub enum YarnTokenType {
@@ -7,6 +7,7 @@ pub enum YarnTokenType {
     WORD,
     TAB,
     START_LINE,
+    END_LINE,
     START_NODE,
     END_NODE,
     START_SCRIPT,
@@ -21,18 +22,24 @@ const LOOK_UP_MAP : [(YarnTokenType, &'static str); 8] = [
     (YarnTokenType::START_SCRIPT, "<<"),
     (YarnTokenType::END_SCRIPT, ">>"),
     (YarnTokenType::START_NODE, "---"),
-    (YarnTokenType::START_NODE, "==="),
+    (YarnTokenType::END_NODE, "==="),
     (YarnTokenType::SPACE, " "),
     (YarnTokenType::IF, "if"),
+    //(YarnTokenType::END_LINE, "\n")
 ];
 
-#[derive(Debug)]
 pub struct YarnToken<'queue> {
     token_type : YarnTokenType,
     line : usize,
     col_start : usize,
     col_end : usize,
     contents : &'queue str
+}
+
+impl <'a> Debug for YarnToken<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("('{}' | {:?})", self.contents, self.token_type).as_str())
+    }
 }
 
 #[derive(Default, Debug)]
@@ -44,39 +51,57 @@ impl <'a> YarnTokenQueue<'a> {
     pub fn push(&mut self, token : YarnToken<'a>) {
         self.queue.push_back(token);
     }
-
-
 }
 
 pub fn parse_yarn_string<'a>(source : &'a str) -> VecDeque<YarnToken<'a>> {
-    let mut tokens = VecDeque::new();
+    let mut tokens : VecDeque<YarnToken<'a>> = VecDeque::new();
+
+    let mut cur_line = 0;
+
+    let lines = source.lines();
+    for line in lines {
+        tokens.append(&mut parse_line(VecDeque::new(), line, cur_line, 0, 0));
+        cur_line += 1;
+    }
 
     tokens
 }
 
-pub fn parse_line<'a>(tokens : &'a mut VecDeque<YarnToken<'a>>, line : &'a str, cur_line : usize, col_start : usize, col_end : usize) {
-    if line.len() < col_start + col_end {
-        tokens.push_front(YarnToken {
-            token_type: YarnTokenType::START_LINE,
-            line: cur_line,
-            col_start : 0,
-            col_end : 0,
-            contents: "",
-        });
-        println!("{:?}", tokens);
-        return;
-    }
-    
+pub fn parse_line<'a>(
+    mut tokens : VecDeque<YarnToken<'a>>, 
+    line : &'a str, 
+    cur_line : usize, 
+    col_start : usize, 
+    col_end : usize
+) -> VecDeque<YarnToken<'a>> {
     unsafe {
         let current = line.get_unchecked(col_start .. col_start + col_end);
+
+        if line.len() < col_start + col_end {
+            tokens.push_front(YarnToken {
+                token_type: YarnTokenType::START_LINE,
+                line: cur_line,
+                col_start : 0,
+                col_end : 0,
+                contents: "",
+            });
+
+            if col_start != col_end {
+                let mut t = match_token(&current, cur_line, col_start, true);
+                tokens.append(&mut t)
+            }
+            
+            //println!("{:?}", tokens);
+            return tokens;
+        }
         
         let mut t = match_token(&current, cur_line, col_start, false);
         
         if !t.is_empty() {
             tokens.append(&mut t);
-            parse_line(tokens, line, cur_line, col_start + col_end, 0)
+            return parse_line(tokens, line, cur_line, col_start + col_end, 0);
         } else {
-            parse_line(tokens, line, cur_line, col_start, col_end + 1)
+            return parse_line(tokens, line, cur_line, col_start, col_end + 1);
         }
     }
 }

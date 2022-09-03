@@ -1,11 +1,21 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fs::read_to_string};
+
+use parser::parse_yarn_string;
 
 use crate::parser::parse_line;
 
 mod parser;
 
 fn main() {
-    let mut tokens = VecDeque::default();
+    let test = r"
+        Test
+    ";
 
-    parse_line(&mut tokens, "<<if $tam >>", 0, 0, 0);
+    println!("{}", test.contains("\n"));
+
+    let source = read_to_string("assets/simple_test.yarn").unwrap();
+
+    let result = parse_yarn_string(source.as_str());
+
+    println!("{:?}", result);
 }
