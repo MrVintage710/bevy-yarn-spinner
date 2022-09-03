@@ -1,0 +1,24 @@
+title: test
+---
+Oswald: Hello!
+-> Hello?
+    <<jump oswald_good>>
+-> Fuck you!
+    <<jump oswald_bad>>
+===
+
+title: oswald_bad
+position: -217,94
+---
+Oswald: Hello!
+-> Hello?
+-> Fuck you!
+===
+
+title: oswald_good
+position: 133,91
+---
+Oswald: Hello!
+-> Hello?
+-> Fuck you!
+===
