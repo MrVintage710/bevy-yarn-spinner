@@ -17,5 +17,7 @@ fn main() {
 
     let result = parse_yarn_string(source.as_str());
 
-    println!("{:?}", result);
+    for token in result.iter() {
+        println!("{:?}", token)
+    }
 }

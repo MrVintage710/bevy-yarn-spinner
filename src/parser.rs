@@ -77,7 +77,7 @@ pub fn parse_line<'a>(
     unsafe {
         let current = line.get_unchecked(col_start .. col_start + col_end);
 
-        if line.len() < col_start + col_end {
+        if line.len() == col_start + col_end {
             tokens.push_front(YarnToken {
                 token_type: YarnTokenType::START_LINE,
                 line: cur_line,
@@ -95,7 +95,11 @@ pub fn parse_line<'a>(
             return tokens;
         }
         
-        let mut t = match_token(&current, cur_line, col_start, false);
+        let mut t = if col_start + col_end == line.len() {
+            match_token(&current, cur_line, col_start, true)
+        } else {
+            match_token(&current, cur_line, col_start, false)
+        };
         
         if !t.is_empty() {
             tokens.append(&mut t);
