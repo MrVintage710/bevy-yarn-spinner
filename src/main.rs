@@ -1,10 +1,11 @@
 use std::{collections::VecDeque, fs::read_to_string};
 
-use parser::parse_yarn_string;
+use token::tokenize_yarn_string;
 
-use crate::parser::parse_line;
-
-mod parser;
+mod token;
+mod compiler;
+mod value;
+mod error;
 
 fn main() {
     let test = r"
@@ -15,7 +16,7 @@ fn main() {
 
     let source = read_to_string("assets/simple_test.yarn").unwrap();
 
-    let result = parse_yarn_string(source.as_str());
+    let result = tokenize_yarn_string(source.as_str());
 
     for token in result.iter() {
         println!("{:?}", token)
