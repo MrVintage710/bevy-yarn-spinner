@@ -1,8 +1,12 @@
 use std::collections::VecDeque;
 
-use bevy::utils::HashMap;
+use bevy::{utils::HashMap, ecs::world::WorldCell, app::AppLabel};
 
 use crate::{token::{YarnToken, YarnTokenType::*}, value::YarnValue, error::YarnError};
+
+//===================================================================================================================================
+//                       Helper Functions
+//===================================================================================================================================
 
 macro_rules! first_token_is_any {
     ($tokens:ident, $($token:ident),*) => {
@@ -68,6 +72,14 @@ macro_rules! check_pop_tokens {
     };
 }
 
+fn is_str_numeric(string : &str) -> bool {
+    string.chars().fold(true, |mut acc , c| acc && c.is_numeric())
+}
+
+//===================================================================================================================================
+//                       Compilation Functions
+//===================================================================================================================================
+
 pub struct YarnOperation {
     
 }
@@ -100,7 +112,7 @@ fn compile_string_value(tokens : &mut VecDeque<YarnToken>) -> Option<Result<Yarn
             value.push_str(token.contents());
         }
 
-        if first_token_is_any!(tokens, EOF) {
+        if first_token_is_any!(tokens, EOF) || tokens.is_empty() {
             let token = tokens.front().unwrap();
             return Some(Err(YarnError::new_eof_error(token.line(), token.col_start())));
         }
@@ -112,6 +124,34 @@ fn compile_string_value(tokens : &mut VecDeque<YarnToken>) -> Option<Result<Yarn
 
         if check_pop_tokens!(tokens, QUOTATION) {
             return Some(Ok(YarnValue::STRING(value)));
+        }
+    }
+
+    None
+}
+
+fn compile_number_value(tokens : &mut VecDeque<YarnToken>) -> Option<Result<YarnValue, YarnError>>{
+    let mut number = String::new();
+
+    if check_tokens!(tokens, WORD) {
+        if let Some(first_token) = tokens.pop_front() {
+            if is_str_numeric(first_token.contents()) {
+                number.push_str(first_token.contents());
+                if check_pop_tokens!(tokens, PERIOD) {
+                    number.push('.');
+                    if check_tokens!(tokens, WORD) {
+                        if let Some(second_token) = tokens.pop_front() {
+                            if is_str_numeric(second_token.contents()) {
+                                number.push_str(second_token.contents())
+                            } else {
+                                return Some(Err(YarnError::new_invalid_number_error(second_token.line(), second_token.col_start())));
+                            }
+                        }
+                    }
+                }
+
+                return Some(Ok(YarnValue::NUMBER(number.parse().unwrap())));
+            }
         }
     }
 
@@ -138,8 +178,7 @@ mod tests {
     #[test]
     fn check_tokens_macro() {
         let mut tokens = tokenize_yarn_string("<<");
-        println!("{:?}, {}", tokens, check_tokens!(tokens, START_LINE, LESS_THAN, LESS_THAN));
-        assert!(check_tokens!(tokens, LESS_THAN, LESS_THAN))
+        assert!(check_tokens!(tokens, START_LINE, LESS_THAN, LESS_THAN, END_LINE, EOF));
     }
 
     #[test]
@@ -151,15 +190,44 @@ mod tests {
     fn compile_string_value_test() {
         let mut tokens = tokenize_yarn_string("\"This is a test line\"");
         tokens.pop_front();
-        tokens.pop_back();
-        tokens.pop_back();
         let value = compile_string_value(&mut tokens).unwrap().unwrap();
         assert_eq!(value, YarnValue::STRING("This is a test line".to_string()));
 
         let mut tokens = tokenize_yarn_string("\"This is a test line");
         tokens.pop_front();
-        tokens.pop_back();
         let value = compile_string_value(&mut tokens).unwrap();
-        assert!(value.is_err())
+        assert!(value.is_err());
+        assert_eq!(value.unwrap_err().error_name(), "EOL Error");
+
+        let mut tokens = tokenize_yarn_string("\"This is a test line\nand this is another\"");
+        tokens.pop_front(); 
+        let value = compile_string_value(&mut tokens).unwrap();
+        assert!(value.is_err());
+        assert_eq!(value.unwrap_err().error_name(), "EOL Error");
+    }
+
+    #[test]
+    fn compile_number_test() {
+        let mut tokens = tokenize_yarn_string("3.14");
+        tokens.pop_front();
+        let value = compile_number_value(&mut tokens).unwrap();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), YarnValue::NUMBER(3.14));
+
+        let mut tokens = tokenize_yarn_string("2.test");
+        tokens.pop_front();
+        let value = compile_number_value(&mut tokens).unwrap();
+        assert!(value.is_err());
+        assert_eq!(value.unwrap_err().error_name(), "Invalid Number Error");
+
+        let mut tokens = tokenize_yarn_string("Not a Numeber");
+        tokens.pop_front();
+        let value = compile_number_value(&mut tokens);
+        assert!(value.is_none());
+    }
+
+    #[test]
+    fn is_numeric_function() {
+        assert!(is_str_numeric("1234"))
     }
 }
