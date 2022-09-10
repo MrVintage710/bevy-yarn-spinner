@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+pub type YarnResult<T> = Result<T, YarnError>;
+
 #[derive(Clone)]
 pub struct YarnError {
     error_name : String,
@@ -37,6 +39,15 @@ impl YarnError {
         YarnError {
             error_name : "Invalid Number Error".to_string(),
             error_message : "The number at the given line is invalid. Numbers may only contain numerical digits (1-9) and decimals.".to_string(),
+            col,
+            line,
+        }
+    }
+
+    pub fn new_invalid_boolean_error(line : usize, col : usize) -> Self {
+        YarnError {
+            error_name : "Invalid Boolean Error".to_string(),
+            error_message : "The boolean at the given line is invalid. Boolean must be either 'true' or 'false'.".to_string(),
             col,
             line,
         }

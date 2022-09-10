@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, result, fmt::Debug};
+use std::{collections::VecDeque, fmt::Debug, result};
+
+//==================================================================================================================
+//                       Tokens
+//==================================================================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum YarnTokenType {
@@ -6,6 +10,11 @@ pub enum YarnTokenType {
     ARROW,
     WORD,
     TAB,
+    MULT,
+    DIV,
+    ADD,
+    SUB,
+    EQUAL,
     START_LINE,
     END_LINE,
     START_NODE,
@@ -18,8 +27,11 @@ pub enum YarnTokenType {
     QUOTATION,
     PERIOD,
     HASHTAG,
+    LEFT_PAREN,
+    RIGHT_PAREN,
     LEFT_SQUARE_BRACKET,
     RIGHT_SQUARE_BRACKET,
+    EQUAL_TOO,
     LESS_THAN,
     LESS_THAN_EQ,
     GREATER_THAN,
@@ -28,7 +40,7 @@ pub enum YarnTokenType {
     EOF
 }
 
-const LOOK_UP_MAP : [(YarnTokenType, &'static str); 19] = [
+const LOOK_UP_MAP : [(YarnTokenType, &'static str); 26] = [
     (YarnTokenType::COLON, ":"),
     (YarnTokenType::ARROW, "->"),
     (YarnTokenType::START_NODE, "---"),
@@ -44,19 +56,123 @@ const LOOK_UP_MAP : [(YarnTokenType, &'static str); 19] = [
     (YarnTokenType::GREATER_THAN, ">"),
     (YarnTokenType::LESS_THAN_EQ, "<="),
     (YarnTokenType::GREATER_THAN_EQ, ">="),
+    (YarnTokenType::EQUAL, "="),
     (YarnTokenType::HASHTAG, "#"),
     (YarnTokenType::LEFT_SQUARE_BRACKET, "["),
     (YarnTokenType::RIGHT_SQUARE_BRACKET, "]"),
+    (YarnTokenType::LEFT_PAREN, "("),
+    (YarnTokenType::RIGHT_PAREN, ")"),
     (YarnTokenType::FORWARD_SLASH, "/"),
-    //(YarnTokenType::END_LINE, "\n")
+    (YarnTokenType::MULT, "*"),
+    (YarnTokenType::DIV, "/"),
+    (YarnTokenType::ADD, "+"),
+    (YarnTokenType::SUB, "-"),
 ];
+
+//==================================================================================================================
+//                       Token Queue Matchers
+//==================================================================================================================
+
+struct YarnTokenMacher {
+    tokens_to_match : Vec<YarnTokenType>,
+    result : YarnTokenType
+}
+
+impl YarnTokenMacher {
+    
+    pub fn new(tokens_to_match : Vec<YarnTokenType>, result : YarnTokenType) -> YarnTokenMacher {
+        YarnTokenMacher {
+            tokens_to_match,
+            result
+        }
+    }
+    
+    pub fn try_to_match<'a>(&'a self, tokens : &'a mut VecDeque<YarnToken<'a>>, index : usize) {
+        let mut matching = true;
+        for (offset, token_type) in self.tokens_to_match.iter().enumerate() {
+            if let Some(cur_token) = tokens.get(index + offset) {
+                matching &= (token_type == cur_token.token_type());
+            }
+        }
+
+        if matching {
+            let mut contents : Vec<&'a str> = Vec::new();
+            let mut line = 0;
+            let mut col_start = 0;
+            let mut col_end = 0;
+            for offset in 0..self.tokens_to_match.len() {
+                let removed_token : Option<YarnToken<'a>> = tokens.remove(index + offset);
+                if removed_token.is_some() {
+                    let removed_token : YarnToken<'a> = removed_token.unwrap();
+
+                    if offset == 0 {
+                        col_start = removed_token.col_start;
+                    }
+
+                    if offset == self.tokens_to_match.len() - 1 {
+                        col_end = removed_token.col_end;
+                    }
+
+                    
+                }
+            }
+
+            let token  = YarnToken {
+                token_type: self.result,
+                line,
+                col_start,
+                col_end,
+                contents: YarnContent::Joined(contents),
+            };
+            
+            tokens.insert(index, token);
+        }
+    }
+}
+
+//===================================================================================================================================
+//                       Token Content
+//===================================================================================================================================
+
+pub enum YarnContent<'a> {
+    Single(&'a str),
+    Joined(Vec<&'a str>)
+}
+
+impl <'a> YarnContent<'a> {
+
+    pub fn copy_data(&'a self) -> String {
+        match self {
+            YarnContent::Single(value) => value.to_string(),
+            YarnContent::Joined(list) => list.join(""),
+        }
+    }
+
+    pub fn single(&'a self) -> Option<&'a str> {
+        match self {
+            YarnContent::Single(value) => Some(value),
+            YarnContent::Joined(_) => None,
+        }
+    }
+
+    pub fn joined(&'a self) -> Option<&Vec<&'a str>> {
+        match self {
+            YarnContent::Single(_) => None,
+            YarnContent::Joined(v) => Some(v),
+        }
+    }
+}
+
+//===================================================================================================================================
+//                       Token
+//===================================================================================================================================
 
 pub struct YarnToken<'queue> {
     token_type : YarnTokenType,
     line : usize,
     col_start : usize,
     col_end : usize,
-    contents : &'queue str
+    contents : YarnContent<'queue>
 }
 
 impl <'a> YarnToken<'a> {
@@ -64,8 +180,8 @@ impl <'a> YarnToken<'a> {
         &self.token_type
     }
 
-    pub fn contents(&'a self) -> &str {
-        self.contents
+    pub fn contents(&'a self) -> YarnContent<'a> {
+        self.contents()
     }
 
     pub fn line(&'a self) -> usize {
@@ -79,7 +195,7 @@ impl <'a> YarnToken<'a> {
 
 impl <'a> Debug for YarnToken<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!("('{}' | {:?})", self.contents, self.token_type).as_str())
+        f.write_str(format!("('{}' | {:?})", self.contents.copy_data(), self.token_type).as_str())
     }
 }
 
@@ -110,7 +226,7 @@ pub fn tokenize_yarn_string<'a>(source : &'a str) -> VecDeque<YarnToken<'a>> {
 }
 
 fn create_marker_token<'a>(token_type : YarnTokenType, line : usize, col : usize) -> YarnToken<'a> {
-    YarnToken { token_type: token_type, line, col_start: col, col_end: 0, contents: "" }
+    YarnToken { token_type: token_type, line, col_start: col, col_end: 0, contents: YarnContent::Single("") }
 }
 
 fn parse_line<'a>(
@@ -134,7 +250,7 @@ fn parse_line<'a>(
                 line: cur_line,
                 col_start : 0,
                 col_end : 0,
-                contents: "",
+                contents: YarnContent::Single(""),
             });
 
             tokens.push_back(YarnToken {
@@ -142,7 +258,7 @@ fn parse_line<'a>(
                 line: cur_line,
                 col_start : col_start + col_end,
                 col_end : col_start + col_end,
-                contents: "",
+                contents: YarnContent::Single(""),
             });
             
             //println!("{:?}", tokens);
@@ -174,31 +290,17 @@ unsafe fn match_token<'a>(value : &'a str, line : usize, col : usize, capture_wo
                 let start = value.find(s).unwrap();
                 token_match = true;
                 if value == s {
+
+
                     let token = YarnToken {
                         token_type: t,
                         line,
                         col_start: col + start,
                         col_end: col + start + s.len(),
-                        contents: s,
+                        contents: YarnContent::Single(s),
                     };
                     tokens.push_back(token);
                 } else {
-                    //Old cod, keeping around for context
-                    // let mut offset = 0;
-                    // if start != 0 {
-                    //     let mut result1 = match_token(value.get_unchecked(0 .. start), line, col, true);
-                    //     offset += start;
-                    //     tokens.append(&mut result1)
-                    // }
-    
-                    // let mut result2 = match_token(value.get_unchecked(start .. start + s.len()), line, col + offset, true);
-                    // tokens.append(&mut result2);
-                    // offset += s.len();
-    
-                    // if start + s.len() != value.len() {
-                    //     let mut result3 = match_token(value.get_unchecked(start + s.len() .. value.len()), line, col + offset, true);
-                    //     tokens.append(&mut result3);
-                    // }
 
                     let mut result1 = match_token(value.get_unchecked(0 .. start), line, col, true);
                     let mut result2 = match_token(value.get_unchecked(start .. value.len()), line, col + start, true);
@@ -216,7 +318,7 @@ unsafe fn match_token<'a>(value : &'a str, line : usize, col : usize, capture_wo
             line,
             col_start: col,
             col_end: col + value.len(),
-            contents: value,
+            contents: YarnContent::Single(value),
         };
         tokens.push_back(token);
     }
@@ -255,5 +357,26 @@ mod tests {
             let mut tokens = match_token("word->", 0, 0, false);
             has_tokens!(tokens, WORD, ARROW);
         }
+    }
+
+    // #[test]
+    // fn token_matcher_test() {
+    //     let mut tokens = tokenize_yarn_string("===");
+    //     let matcher = YarnTokenMacher::new(vec![
+    //         YarnTokenType::EQUAL,
+    //         YarnTokenType::EQUAL,
+    //         YarnTokenType::EQUAL
+    //     ], YarnTokenType::END_NODE);
+    //     matcher.try_to_match(&mut tokens, 1);
+
+    //     println!("{:?}", tokens);
+    // }
+
+    fn test_concat() {
+        let s = "test";
+        let f = &s[..2];
+        let l = &s[2..];
+        let word = [f, l].concat();
+        println!("{}{}", f, l)
     }
 }
