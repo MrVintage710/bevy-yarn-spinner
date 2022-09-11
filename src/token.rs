@@ -64,6 +64,17 @@ impl <'a> YarnTokenQueue<'a> {
             false
         }
     }
+
+    pub fn pop(&mut self) -> Option<YarnToken<'a>> {
+        self.tokens.pop_front()
+    }
+
+
+    pub fn remove_leading_spaces(&mut self) {
+        while self.check(YarnTokenType::SPACE) {
+            self.pop();
+        }
+    }
 }
 
 impl <'a> Debug for YarnTokenQueue<'a> {
