@@ -53,6 +53,24 @@ impl YarnError {
         }
     }
 
+    pub fn new_variable_not_declared_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Variable Not Declared Error".to_string(), 
+            error_message: "Variable invoked here has not been declared.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_invalid_operation_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Invalid Opperation Error".to_string(), 
+            error_message: "You cannot us this operation on these types.".to_string(), 
+            col, 
+            line
+        }
+    }
+
     pub fn gen_error_message(&self) -> String {
         format!("{} at ({}, {}) : {}", self.error_name, self.line, self.col, self.error_message)
     }

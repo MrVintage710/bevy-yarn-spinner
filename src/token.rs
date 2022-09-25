@@ -27,6 +27,10 @@ impl <'a> YarnTokenQueue<'a> {
         self.tokens.push_back(token);
     }
 
+    pub fn re_add(&mut self, token : YarnToken<'a>) {
+        self.tokens.push_front(token)
+    }
+
     pub fn merge_tokens(&mut self, start : usize, length : usize, new_type : YarnTokenType) {
         let mut token_1 = self.tokens.get_mut(start).unwrap().clone();
         let token_2 = self.tokens.get(start + length).unwrap().clone();
@@ -69,11 +73,50 @@ impl <'a> YarnTokenQueue<'a> {
         self.tokens.pop_front()
     }
 
+    pub fn pop_if_type(&mut self, token_type : YarnTokenType) -> Option<YarnToken> {
+        if (self.check(token_type)) {
+            self.pop()
+        } else {
+            None
+        }
+    } 
+
+    pub fn peek(&self, index : usize) -> Option<&YarnToken<'a>> {
+        self.tokens.get(index)
+    }
+
+    pub fn peek_type(&self, index : usize, token_type : YarnTokenType) -> bool {
+        if let Some(token) = self.peek(index) {
+            token.token_type() == &token_type
+        } else {
+            false
+        }
+    }
+
+    pub fn peek_line(&mut self) -> usize {
+        if let Some(token) = self.tokens.front() {
+            token.line
+        } else {
+            0
+        }
+    }
+
+    pub fn peek_col(&mut self) -> usize {
+        if let Some(token) = self.tokens.front() {
+            token.col
+        } else {
+            0
+        }
+    }
 
     pub fn remove_leading_spaces(&mut self) {
         while self.check(YarnTokenType::SPACE) {
             self.pop();
         }
+    }
+
+    pub fn front(&self) -> Option<&YarnToken<'a>> {
+        self.tokens.front()
     }
 }
 
@@ -112,21 +155,24 @@ pub enum YarnTokenType {
     ENDIF,
     QUOTATION,
     PERIOD,
+    BANG,
     HASHTAG,
     LEFT_PAREN,
     RIGHT_PAREN,
     LEFT_SQUARE_BRACKET,
     RIGHT_SQUARE_BRACKET,
     EQUAL_TOO,
+    NOT_EQUAL_TOO,
     LESS_THAN,
     LESS_THAN_EQ,
     GREATER_THAN,
     GREATER_THAN_EQ,
     FORWARD_SLASH,
-    EOF
+    EOF,
+    DOLLAR_SIGN
 }
 
-const TOKEN_MAP : [(YarnTokenType, &'static str); 20] = [
+const TOKEN_MAP : [(YarnTokenType, &'static str); 22] = [
     (YarnTokenType::COLON, ":"),
     (YarnTokenType::SPACE, " "),
     (YarnTokenType::IF, "if"),
@@ -147,6 +193,8 @@ const TOKEN_MAP : [(YarnTokenType, &'static str); 20] = [
     (YarnTokenType::DIV, "/"),
     (YarnTokenType::ADD, "+"),
     (YarnTokenType::SUB, "-"),
+    (YarnTokenType::DOLLAR_SIGN, "$"),
+    (YarnTokenType::BANG, "!"),
 ];
 
 //==================================================================================================================
@@ -180,6 +228,10 @@ impl <'a> YarnToken<'a> {
         unsafe {
             self.source.get_unchecked(self.token_offset .. self.token_offset + self.token_length)
         }
+    }
+
+    pub fn is_numeric(&self) -> bool {
+        self.content().chars().fold(true, |mut acc, c| acc & c.is_numeric())
     }
 
     fn merge(&mut self, rhs: &YarnToken<'a>, new_type : YarnTokenType)  {
@@ -306,6 +358,10 @@ fn match_tokens(queue : &mut YarnTokenQueue) {
             //Node open and close
             proccess_match!(queue, index, START_NODE => SUB, SUB, SUB);
             proccess_match!(queue, index, END_NODE => EQUAL, EQUAL, EQUAL);
+
+            // == and !=
+            proccess_match!(queue, index, EQUAL_TOO => EQUAL, EQUAL);
+            proccess_match!(queue, index, NOT_EQUAL_TOO => BANG, EQUAL);
 
             //Arrow
             proccess_match!(queue, index, ARROW => SUB, GREATER_THAN);

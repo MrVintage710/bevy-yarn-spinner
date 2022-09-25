@@ -1,0 +1,14 @@
+expression = equality_expression;
+
+equality_expression = comparison_expression { ("!=" | "==") comparison_expression };
+
+comparison_expression = additive_expression { (">" | ">=" | "<" | "<=" ) additive_expression };
+
+additive_expression = factor_expression { ("+" | "-" ) factor_expression };
+
+factor_expression = unary_expression { ("/" | "*" ) unary_expression };
+
+unary_expression = ( "not" | "-" ) unary_expression | primary_expression;
+
+primary_expression = IDENTIFIER | STRING | INTEGER | "true" | "false" | "null"| 
+                     list_literal | function_call | "(", expression, ")"
