@@ -1,57 +1,62 @@
-use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType::*, self} };
+use crate::{value::{YarnValue, self}, token::{YarnTokenQueue, YarnTokenType::{*, self}, self}, error::{YarnError, YarnResult} };
 
-use super::{YarnRuntime, YarnTree};
+use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnParseResult::{*, self}};
 
 
-pub struct StringLiteral {
+pub struct StringLiteralNode {
     value : String
 }
 
-impl StringLiteral {
+impl StringLiteralNode {
     pub fn new(value : &str) -> Self {
-        StringLiteral { value: String::from(value) }
+        StringLiteralNode { value: String::from(value) }
     }
 
-    pub fn new_boxed(value : &str) -> Box<StringLiteral> {
-        Box::new(StringLiteral::new(value))
-    }
-}
-
-impl YarnRuntime for StringLiteral {
-    fn eval(&self) -> Option<crate::value::YarnValue> {
-        Some(YarnValue::STRING(self.value.clone()))
+    pub fn new_boxed(value : &str) -> Box<StringLiteralNode> {
+        Box::new(StringLiteralNode::new(value))
     }
 }
 
-pub fn check_string_literal(tokens : &YarnTokenQueue, offset : usize) -> bool {
-    if tokens.peek_type(offset, QUOTATION) {
-        let mut index = 1;
-        while !tokens.peek_type(offset + index, QUOTATION) 
-        && !tokens.peek_type(offset + index, END_LINE) {
-            index += 1;
-        }
-
-        if tokens.peek_type(offset + index, END_LINE) {
-            return false;
-        } else {
-            return true;
-        }
+impl YarnEvaluator for StringLiteralNode {
+    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+        Ok(Some(YarnValue::STRING(self.value.clone())))
     }
-
-    false
 }
 
-pub fn parse_string_literal(tokens : &mut YarnTokenQueue, tree : &mut YarnTree) -> usize {
-    tokens.check_and_pop(QUOTATION);
+impl YarnParser for StringLiteralNode {
+    fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
+        if tokens.check_index(offset, YarnTokenType::QUOTATION) {
+            let mut cursor = 1;
+            let mut content = String::new();
+            let mut escape_character = false;
+            
+            while let Some(token) = tokens.peek(offset + cursor) {
+                if token.token_type() == &YarnTokenType::QUOTATION && !escape_character {
+                    break;
+                }
+                
+                if token.token_type() == &YarnTokenType::END_LINE {
+                    return Error(YarnError::new_eol_error(token.line(), token.col()));
+                }
 
-    let mut value = String::new();
-    while !tokens.check(QUOTATION) && !tokens.check(END_LINE) {
-        if let Some(token) = tokens.pop() {
-            value.push_str(token.content())
+                escape_character = if token.token_type() == &YarnTokenType::BACKWARD_SLASH && !escape_character { 
+                    true
+                } else {
+                    false
+                };
+
+                if !escape_character {
+                    content.push_str(token.content())
+                }
+
+                cursor += 1
+            }
+
+            return Parsed(StringLiteralNode::new_boxed(content.as_str()), offset + cursor + 1);
         }
+        
+        Failed
     }
-
-    tree.add_node(None, StringLiteral::new_boxed(value.as_str()))
 }
 
 mod tests {
@@ -60,21 +65,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_check_string_literal() {
-        let tokens = tokenize("\"Test\"");
-        assert!(check_string_literal(&tokens, 1));
-
-        let tokens = tokenize("\"Test");
-        assert!(!check_string_literal(&tokens, 1));
-    }
-
-    #[test]
     fn test_parse_string_literal() {
-        let mut tokens = tokenize("\"Test\"");
-        let mut tree = YarnTree::new();
-        tokens.pop();
-        let id = parse_string_literal(&mut tokens, &mut tree);
-        //println!("{:?}", tree.get_node(id).unwrap().eval())
-        assert_eq!(tree.get_node(id).unwrap().eval().unwrap(), YarnValue::STRING("Test".to_string()))
+        let mut variables = YarnVariableMap::new();
+
+        let tokens = tokenize("\"test\"");
+        let result = StringLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test".to_string()));
+                assert_eq!(endex, 4)
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
+
+        let tokens = tokenize("\"test\\\"\"");
+        let result = StringLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test\"".to_string()));
+                assert_eq!(endex, 6)
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
+
+        let tokens = tokenize("\"test with multiple words\"");
+        let result = StringLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test with multiple words".to_string()));
+                assert_eq!(endex, 10)
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
+
+        let tokens = tokenize("\"test with multiple words");
+        let result = StringLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(_, _) => assert!(false),
+            Error(_) => assert!(true),
+            Failed => assert!(false),
+        }
+
+        let tokens = tokenize("");
+        let result = StringLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(_, _) => assert!(false),
+            Error(_) => assert!(false),
+            Failed => assert!(true),
+        }
     }
 }

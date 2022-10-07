@@ -1,123 +1,119 @@
 use core::num;
 
-use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType::*, self}, error::YarnError};
+use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType}, error::{YarnError}};
 
-use super::{YarnRuntime, YarnVariableMap, YarnNode, YarnTree};
+use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnParseResult::{self, *}};
 
 #[derive(Debug)]
-pub struct NumberLiteral {
+pub struct NumberLiteralNode {
     value : f32
 }
 
-impl  NumberLiteral {
-    pub fn new(value : f32) -> NumberLiteral {
-        NumberLiteral {
+impl  NumberLiteralNode {
+    pub fn new(value : f32) -> NumberLiteralNode {
+        NumberLiteralNode {
             value
         }
     }
 
-    pub fn new_boxed(value : f32) -> Box<NumberLiteral> {
+    pub fn new_boxed(value : f32) -> Box<NumberLiteralNode> {
         Box::new(
-            NumberLiteral {
+            NumberLiteralNode {
                 value
             }
         )
     }
 }
 
-impl YarnRuntime for NumberLiteral {
-    fn eval(&self) -> Option<YarnValue> {
-        Some(YarnValue::NUMBER(self.value))
+impl YarnEvaluator for NumberLiteralNode {
+    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+        Ok(Some(YarnValue::NUMBER(self.value)))
     }
 }
 
-pub fn check_number_literal(tokens : &YarnTokenQueue, offset : usize) -> bool {
-    let mut number_start = if tokens.peek_type(offset, SUB) {
-        1
-    } else {
-        0
-    };
-    
-    if tokens.peek_type(offset + number_start, WORD) {
-        let first_number_token = tokens.peek(offset + number_start).unwrap();
-        if first_number_token.is_numeric() {
-            return true;
+impl YarnParser for NumberLiteralNode {
+    fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
+        if let Some(integral) = tokens.peek_only_if_type(offset, YarnTokenType::WORD) {
+            if integral.is_numeric() {
+                let mut value = String::from(integral.content());
+                let mut len = 1;
+
+                if tokens.check_index(offset + 1, YarnTokenType::PERIOD) {
+                    if let Some(fractional) = tokens.peek_only_if_type(offset+2, YarnTokenType::WORD) {
+                        if fractional.is_numeric() {
+                            value.push_str(".");
+                            value.push_str(fractional.content());
+                            len += 2;
+                        } else {
+                            return Error(YarnError::new_invalid_number_error(fractional.line(), fractional.col()));
+                        }
+                    }
+                }
+
+                let eval = NumberLiteralNode::new_boxed(value.parse::<f32>().unwrap());
+                return Parsed(eval, offset+len);
+            }
         }
+
+        Failed
     }
-
-    false
-}
-
-pub fn parse_number(tokens : &mut YarnTokenQueue, tree : &mut YarnTree, ) -> usize {
-    let negative = tokens.check_and_pop(SUB);
-
-    let mut value = if negative { "-".to_string()} else {String::new()};
-    if let Some(token) = tokens.pop_if_type(WORD) {
-        if token.is_numeric() {
-            value.push_str(token.content())
-        }
-    } 
-    
-    if let Some(_) = tokens.pop_if_type(PERIOD) {
-        value.push('.')
-    }
-
-    if let Some(token) = tokens.pop_if_type(WORD) {
-        if token.is_numeric() {
-            value.push_str(token.content())
-        }
-    } 
-
-    let number  = value.parse::<f32>();
-    let runtime = if number.is_err() {
-        NumberLiteral {
-            value : 0.0
-        }
-    } else {
-        NumberLiteral {
-            value : number.unwrap()
-        }
-    };
-
-    tree.add_node(None, Box::new(runtime))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::token::tokenize;
+
+    use crate::{token::tokenize, value::YarnValue};
 
     use super::*;
 
     #[test]
-    fn test_check_number_literal() {
+    fn test_parse_number_literal() {
+        let mut variables = YarnVariableMap::new();
+
         let tokens = tokenize("2");
-        assert!(check_number_literal(&tokens, 1));
+        let result = NumberLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(2.0));
+                assert_eq!(endex, 2)
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
 
         let tokens = tokenize("2.2");
-        assert!(check_number_literal(&tokens, 1));
+        let result = NumberLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(2.2));
+                assert_eq!(endex, 4)
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
 
-        let tokens = tokenize("-2");
-        assert!(check_number_literal(&tokens, 1));
-    }
+        let tokens = tokenize("2.test");
+        let result = NumberLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(_, _) => assert!(false),
+            Error(_) => assert!(true),
+            Failed => assert!(false),
+        }
 
-    #[test]
-    fn test_parse_number_literal() {
-        let mut tokens = tokenize("2");
-        let mut tree = YarnTree::new();
-        tokens.pop();
-        let token_index = parse_number(&mut tokens, &mut tree);
-        assert_eq!(tree.get_node(token_index).unwrap().eval().unwrap(), YarnValue::NUMBER(2.0));
+        let tokens = tokenize("test.2");
+        let result = NumberLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(_, _) => assert!(false),
+            Error(_) => assert!(false),
+            Failed => assert!(true),
+        }
 
-        let mut tokens = tokenize("2.2");
-        let mut tree = YarnTree::new();
-        tokens.pop();
-        let token_index = parse_number(&mut tokens, &mut tree);
-        assert_eq!(tree.get_node(token_index).unwrap().eval().unwrap(), YarnValue::NUMBER(2.2));
-
-        let mut tokens = tokenize("-2.2");
-        let mut tree = YarnTree::new();
-        tokens.pop();
-        let token_index = parse_number(&mut tokens, &mut tree);
-        assert_eq!(tree.get_node(token_index).unwrap().eval().unwrap(), YarnValue::NUMBER(-2.2));
+        let tokens = tokenize("");
+        let result = NumberLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => assert!(false),
+            Error(_) => assert!(false),
+            Failed => assert!(true),
+        }
     }
 }

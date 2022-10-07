@@ -62,10 +62,28 @@ impl YarnError {
         }
     }
 
+    pub fn new_invalid_variable_identifier_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Invalid Variable Identifier Error".to_string(), 
+            error_message: "The variable name is invalid".to_string(), 
+            col, 
+            line
+        }
+    }
+
     pub fn new_invalid_operation_error(line : usize, col : usize) -> Self {
         YarnError { 
             error_name: "Invalid Opperation Error".to_string(), 
             error_message: "You cannot us this operation on these types.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_unexpected_token_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Unexpected Token Error".to_string(), 
+            error_message: "While parsing, the system ran into an unexpected token.".to_string(), 
             col, 
             line
         }

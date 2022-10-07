@@ -127,7 +127,7 @@ fn detect_duop_group (
             &mut YarnVariableMap
         ) -> Option<YarnResult<YarnValue>>
     ) -> Option<(YarnResult<YarnValue>, Option<(YarnTokenType, YarnResult<YarnValue>)>, usize, usize)> {
-    let (line, col) = (tokens.peek_line(), tokens.peek_col());
+    let (line, col) = (tokens.peek_line(0), tokens.peek_col(0));
     if let Some(value_1) = matcher(tokens, variables) {
         tokens.remove_leading_spaces();
         if tokens.check(ADD) 

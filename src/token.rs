@@ -85,6 +85,16 @@ impl <'a> YarnTokenQueue<'a> {
         self.tokens.get(index)
     }
 
+    pub fn peek_only_if_type(&self, index : usize, t : YarnTokenType) -> Option<&YarnToken<'a>> {
+        if let Some(token) = self.tokens.get(index) {
+            if token.token_type == t {
+                return Some(token)
+            }
+        }
+
+        None
+    }
+
     pub fn peek_type(&self, index : usize, token_type : YarnTokenType) -> bool {
         if let Some(token) = self.peek(index) {
             token.token_type() == &token_type
@@ -93,16 +103,16 @@ impl <'a> YarnTokenQueue<'a> {
         }
     }
 
-    pub fn peek_line(&mut self) -> usize {
-        if let Some(token) = self.tokens.front() {
+    pub fn peek_line(&self, offset : usize) -> usize {
+        if let Some(token) = self.peek(offset) {
             token.line
         } else {
             0
         }
     }
 
-    pub fn peek_col(&mut self) -> usize {
-        if let Some(token) = self.tokens.front() {
+    pub fn peek_col(&self, offset : usize) -> usize {
+        if let Some(token) = self.peek(offset) {
             token.col
         } else {
             0
@@ -117,6 +127,14 @@ impl <'a> YarnTokenQueue<'a> {
 
     pub fn front(&self) -> Option<&YarnToken<'a>> {
         self.tokens.front()
+    }
+
+    pub fn next_non_space_after(&self, offset : usize) -> usize {
+        let mut next_index = 1;
+        while self.check_index(offset + next_index, YarnTokenType::SPACE) {
+            next_index += 1;
+        }
+        return offset + next_index;
     }
 }
 
@@ -137,7 +155,6 @@ pub enum YarnTokenType {
     WORD,
     TAB,
     MULT,
-    DIV,
     ADD,
     SUB,
     EQUAL,
@@ -168,6 +185,7 @@ pub enum YarnTokenType {
     GREATER_THAN,
     GREATER_THAN_EQ,
     FORWARD_SLASH,
+    BACKWARD_SLASH,
     EOF,
     DOLLAR_SIGN
 }
@@ -189,8 +207,8 @@ const TOKEN_MAP : [(YarnTokenType, &'static str); 22] = [
     (YarnTokenType::LEFT_PAREN, "("),
     (YarnTokenType::RIGHT_PAREN, ")"),
     (YarnTokenType::FORWARD_SLASH, "/"),
+    (YarnTokenType::BACKWARD_SLASH, "\\"),
     (YarnTokenType::MULT, "*"),
-    (YarnTokenType::DIV, "/"),
     (YarnTokenType::ADD, "+"),
     (YarnTokenType::SUB, "-"),
     (YarnTokenType::DOLLAR_SIGN, "$"),

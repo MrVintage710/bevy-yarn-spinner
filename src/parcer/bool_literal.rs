@@ -1,82 +1,100 @@
-use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType}};
+use std::any::Any;
 
-use super::{YarnRuntime, YarnTree};
+use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType, self}, error::{YarnError, YarnResult}};
 
-pub struct BoolLiteral {
+use super::{YarnEvaluator, YarnParser, YarnVariableMap, YarnParseResult::{*, self}};
+
+pub struct BoolLiteralNode {
     value : bool
 }
 
-impl BoolLiteral {
-    pub fn new(value : bool) -> BoolLiteral {
-        BoolLiteral {
+impl BoolLiteralNode {
+    pub fn new(value : bool) -> BoolLiteralNode {
+        BoolLiteralNode {
             value
         }
     }
 
-    pub fn new_boxed(value : bool) -> Box<BoolLiteral> {
-        Box::new(BoolLiteral { value })
+    pub fn new_boxed(value : bool) -> Box<BoolLiteralNode> {
+        Box::new(BoolLiteralNode { value })
     }
 }
 
-impl YarnRuntime for BoolLiteral {
-    fn eval(&self) -> Option<crate::value::YarnValue> {
-        Some(YarnValue::BOOL(self.value))
+impl YarnEvaluator for BoolLiteralNode {
+    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+        Ok(Some(YarnValue::BOOL(self.value)))
     }
 }
 
-pub fn check_bool_literal(tokens : &YarnTokenQueue, offset : usize) -> bool {
-    if let Some(token) = tokens.peek(offset) {
-        if token.token_type() == &YarnTokenType::WORD {
-            if token.content() == "true" || token.content() == "false" {
-                return true;
+impl YarnParser for BoolLiteralNode {
+    fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
+        if let Some(token) = tokens.peek(offset) {  
+            if token.token_type() == &YarnTokenType::WORD {
+                if (token.content() == "true" || token.content() == "false") {
+                    if token.content() == "true" {
+                        Parsed(BoolLiteralNode::new_boxed(true), offset + 1)
+                    } else {
+                        Parsed(BoolLiteralNode::new_boxed(false), offset + 1)
+                    }
+                } else {
+                    Error(YarnError::new_invalid_boolean_error(token.line(), token.col()))
+                }
+            } else {
+                Failed
             }
+        } else {
+            Failed
         }
     }
-
-    false
-}
-
-pub fn parse_bool_literal(tokens : &mut YarnTokenQueue, tree : &mut YarnTree) -> usize {
-    let value = if let Some(token) = tokens.pop() {
-        token.content()
-    } else {
-        ""
-    };
-
-    let b = if value == "true" {
-        true
-    } else if value == "false" {
-        false
-    } else {
-        false
-    };
-
-    tree.add_node(None, BoolLiteral::new_boxed(b))
 }
 
 mod tests {
-    use crate::token::tokenize;
+    use crate::{token::tokenize};
 
     use super::*;
 
     #[test]
-    fn test_check_bool_literal() {
+    fn test_parse_bool_literal() {
+        let mut variables = YarnVariableMap::new();
+
         let tokens = tokenize("true");
-        assert!(check_bool_literal(&tokens, 1));
+        let result = BoolLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(endex, 2);
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
 
         let tokens = tokenize("false");
-        assert!(check_bool_literal(&tokens, 1));
+        let result = BoolLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(endex, 2);
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true))
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
 
-        let tokens = tokenize("Not a bool");
-        assert!(!check_bool_literal(&tokens, 1))
-    }
+        let tokens = tokenize("Notabool");
+        let result = BoolLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, _) => assert!(false),
+            Error(error) => {
+                assert_eq!(error.error_name(), "Invalid Boolean Error".to_string())
+            },
+            Failed => assert!(false),
+        }
 
-    #[test]
-    fn test_parse_bool_literal() {
-        let mut tokens = tokenize("true");
-        let mut tree = YarnTree::new();
-        tokens.pop();
-        let id = parse_bool_literal(&mut tokens, &mut tree);
-        assert_eq!(YarnValue::BOOL(true), tree.get_node(id).unwrap().eval().unwrap())
+        let tokens = tokenize("");
+        let result = BoolLiteralNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, _) => assert!(false),
+            Error(error) => assert!(false),
+            Failed => assert!(true),
+        }
     }
 }
