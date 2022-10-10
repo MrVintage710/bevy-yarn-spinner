@@ -6,6 +6,7 @@ mod primary_expression;
 mod unary_expression;
 mod factor_expression;
 mod additive_expression;
+mod comparison_expression;
 
 use std::{collections::HashMap, rc::Rc, fmt::Debug, process::Child};
 
