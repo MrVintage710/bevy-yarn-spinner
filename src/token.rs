@@ -95,14 +95,6 @@ impl <'a> YarnTokenQueue<'a> {
         None
     }
 
-    pub fn peek_type(&self, index : usize, token_type : YarnTokenType) -> bool {
-        if let Some(token) = self.peek(index) {
-            token.token_type() == &token_type
-        } else {
-            false
-        }
-    }
-
     pub fn peek_line(&self, offset : usize) -> usize {
         if let Some(token) = self.peek(offset) {
             token.line

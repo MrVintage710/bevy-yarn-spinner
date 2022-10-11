@@ -7,12 +7,15 @@ mod unary_expression;
 mod factor_expression;
 mod additive_expression;
 mod comparison_expression;
+mod equality_expression;
 
 use std::{collections::HashMap, rc::Rc, fmt::Debug, process::Child};
 
 use crate::{error::{YarnError, YarnResult}, token::{YarnToken, YarnTokenQueue, YarnTokenType::{*, self}}, value::YarnValue};
 
-type YarnVariableMap = HashMap<String, YarnValue>;
+use self::equality_expression::EqualityExpressionNode;
+
+pub type YarnVariableMap = HashMap<String, YarnValue>;
 
 pub enum YarnParseResult {
     Parsed(Box<dyn YarnEvaluator>, usize),
@@ -26,4 +29,8 @@ pub trait YarnEvaluator {
 
 pub trait YarnParser {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult;
+}
+
+pub fn parse(tokens : &YarnTokenQueue) -> YarnParseResult {
+    EqualityExpressionNode::parse(tokens, 1)
 }

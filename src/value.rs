@@ -214,3 +214,18 @@ impl YarnValue {
         }
     }
 }
+
+impl From<&str> for YarnValue {
+    fn from(value : &str) -> Self {
+        let number_value = value.parse::<f32>();
+        if value == "true" {
+            YarnValue::BOOL(true)
+        } else if value == "false" {
+            YarnValue::BOOL(false)
+        } else if number_value.is_ok() {
+            YarnValue::NUMBER(number_value.unwrap())
+        } else {
+            YarnValue::STRING(value.to_string())
+        }
+    }
+}

@@ -1,5 +1,5 @@
-use crate::{error::{YarnResult, YarnError}, token::{YarnTokenQueue, self}};
-use super::{YarnParser, variable::VariableNode, string_literal::StringLiteralNode, number_literal::NumberLiteralNode, YarnParseResult::{*, self}, bool_literal::BoolLiteralNode};
+use crate::{error::{YarnResult, YarnError}, token::{YarnTokenQueue, self, YarnTokenType}};
+use super::{YarnParser, variable::VariableNode, string_literal::StringLiteralNode, number_literal::NumberLiteralNode, YarnParseResult::{*, self}, bool_literal::BoolLiteralNode, equality_expression::EqualityExpressionNode};
 
 pub struct PrimaryExpressionNode;
 
@@ -34,6 +34,21 @@ impl YarnParser for PrimaryExpressionNode {
         match bool_eval {
             Failed => {},
             _ => { return bool_eval }
+        }
+
+        if tokens.check_index(offset, YarnTokenType::LEFT_PAREN) {
+            let result = EqualityExpressionNode::parse(tokens, offset + 1);
+            match result {
+                Parsed(eval, endex) => {
+                    if tokens.check_index(endex, YarnTokenType::RIGHT_PAREN) {
+                        return Parsed(eval, endex + 1);
+                    } else {
+                        return Error(YarnError::new_unexpected_token_error(tokens.peek_line(endex), tokens.peek_col(endex)))
+                    }
+                },
+                Error(error) => return Error(error),
+                Failed => {},
+            }
         }
         
         Failed
@@ -114,6 +129,17 @@ mod tests {
         match result {
             Parsed(eval, endex) => {
                 assert_eq!(endex, 3);
+                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+            },
+            Error(_) => assert!(false),
+            Failed => assert!(false),
+        }
+
+        let tokens = tokenize("($test == true)");
+        let result = PrimaryExpressionNode::parse(&tokens, 1);
+        match result {
+            Parsed(eval, endex) => {
+                assert_eq!(endex, 9);
                 assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
             },
             Error(_) => assert!(false),
