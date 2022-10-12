@@ -1,6 +1,6 @@
 use crate::{error::YarnError, token::YarnTokenType};
 
-use super::{YarnEvaluator, YarnParser, comparison_expression::ComparisonExpressionNode, YarnParseResult::{*, self}};
+use super::{YarnEvaluator, YarnExpressionParser, comparison_expression::ComparisonExpressionNode, YarnParseResult::{*, self}, YarnFunctionMap};
 
 pub enum EqualityOperator {
     EQUAL_TOO,
@@ -32,9 +32,9 @@ impl EqualityExpressionNode {
 }
 
 impl YarnEvaluator for EqualityExpressionNode {
-    fn eval(&self, variables : &mut super::YarnVariableMap) -> crate::error::YarnResult<Option<crate::value::YarnValue>> {
-        let lhs_value = self.lhs.eval(variables);
-        let rhs_value = self.rhs.eval(variables);
+    fn eval(&self, variables : &mut super::YarnVariableMap, functions : &YarnFunctionMap) -> crate::error::YarnResult<Option<crate::value::YarnValue>> {
+        let lhs_value = self.lhs.eval(variables, functions);
+        let rhs_value = self.rhs.eval(variables, functions);
 
         if lhs_value.is_ok() && rhs_value.is_ok() {
             let lhs_value = lhs_value.unwrap();
@@ -66,7 +66,7 @@ impl YarnEvaluator for EqualityExpressionNode {
     }
 }
 
-impl YarnParser for EqualityExpressionNode {
+impl YarnExpressionParser for EqualityExpressionNode {
     fn parse(tokens : &crate::token::YarnTokenQueue, offset : usize) -> YarnParseResult {
         let lhs = ComparisonExpressionNode::parse(tokens, offset);
         if let Parsed(lhs_eval, lhs_endex) = lhs {
@@ -102,6 +102,7 @@ mod tests {
 
     #[test]
     fn test_parse_variable_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
         variables.insert("test".to_string(), YarnValue::BOOL(true));
 
@@ -109,7 +110,7 @@ mod tests {
         let result = EqualityExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(true));
                 assert_eq!(endex, 6);
             },
             Error(_) => assert!(false),
@@ -120,7 +121,7 @@ mod tests {
         let result = EqualityExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(true));
                 //assert_eq!(endex, 6);
             },
             Error(_) => assert!(false),

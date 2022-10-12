@@ -204,7 +204,7 @@ const TOKEN_MAP : [(YarnTokenType, &'static str); 22] = [
     (YarnTokenType::ADD, "+"),
     (YarnTokenType::SUB, "-"),
     (YarnTokenType::DOLLAR_SIGN, "$"),
-    (YarnTokenType::BANG, "!"),
+    (YarnTokenType::BANG, "!")
 ];
 
 //==================================================================================================================

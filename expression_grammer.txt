@@ -1,3 +1,17 @@
+yarn_program = node*
+
+node = header* "---" line* "==="
+
+command = "<<" statement ">>"
+
+statement = 
+
+key_value = word : word
+
+function_call = word "(" argument_list ")"
+
+argument_list = {expression ","}*
+
 expression = equality_expression;
 
 equality_expression = comparison_expression { ("!=" | "==") comparison_expression };

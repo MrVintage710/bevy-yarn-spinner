@@ -1,6 +1,6 @@
 use crate::{error::{YarnResult, YarnError}, value::YarnValue, token::{YarnTokenQueue, YarnTokenType}};
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, factor_expression::FactorExpressionNode, YarnParseResult::{*, self}};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, factor_expression::FactorExpressionNode, YarnParseResult::{*, self}, YarnFunctionMap};
 
 
 pub enum AdditiveOperator {
@@ -33,9 +33,9 @@ impl AdditiveExpressionNode {
 }
 
 impl YarnEvaluator for AdditiveExpressionNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> YarnResult<Option<YarnValue>> {
-        let lhs_value = self.lhs.eval(variables);
-        let rhs_value = self.rhs.eval(variables);
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> YarnResult<Option<YarnValue>> {
+        let lhs_value = self.lhs.eval(variables, functions);
+        let rhs_value = self.rhs.eval(variables, functions);
 
         if lhs_value.is_ok() && rhs_value.is_ok() {
             let lhs_value = lhs_value.unwrap();
@@ -67,7 +67,7 @@ impl YarnEvaluator for AdditiveExpressionNode {
     }
 }
 
-impl YarnParser for AdditiveExpressionNode {
+impl YarnExpressionParser for AdditiveExpressionNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         let lhs = FactorExpressionNode::parse(tokens, offset);
         if let Parsed(lhs_eval, lhs_endex) = lhs {
@@ -97,12 +97,13 @@ mod tests {
 
     use std::env::var;
 
-    use crate::token::tokenize;
+    use crate::{token::tokenize, parcer::YarnFunctionMap};
 
     use super::*;
 
     #[test]
     fn test_parse_variable_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
         variables.insert("foo".to_string(), YarnValue::NUMBER(2.0));
 
@@ -110,7 +111,7 @@ mod tests {
         let result = AdditiveExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(4.0));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(4.0));
                 assert_eq!(endex, 7);
             },
             Error(_) => assert!(false),
@@ -121,7 +122,7 @@ mod tests {
         let result = AdditiveExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(6.0));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(6.0));
                 assert_eq!(endex, 11);
             },
             Error(_) => assert!(false),

@@ -2,7 +2,7 @@ use std::process::Child;
 
 use crate::{error::{YarnResult, YarnError}, value::{YarnValue, self}, token::{YarnTokenQueue, self, YarnTokenType}};
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnParseResult::{*, self}, primary_expression::PrimaryExpressionNode};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, YarnParseResult::{*, self}, primary_expression::PrimaryExpressionNode, YarnFunctionMap};
 
 enum UnaryOperator {
     NOT,
@@ -32,8 +32,8 @@ impl UnaryExpressionNode {
 }
 
 impl YarnEvaluator for UnaryExpressionNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> YarnResult<Option<YarnValue>> {
-        let value = self.child.eval(variables);
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> YarnResult<Option<YarnValue>> {
+        let value = self.child.eval(variables, functions);
 
         match value {
             Ok(value) => {
@@ -60,7 +60,7 @@ impl YarnEvaluator for UnaryExpressionNode {
     }
 }
 
-impl YarnParser for UnaryExpressionNode {
+impl YarnExpressionParser for UnaryExpressionNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         let operator = if tokens.check_index(offset, YarnTokenType::SUB) {
             Some(UnaryOperator::NEGATIVE)
@@ -92,13 +92,14 @@ mod tests {
 
     #[test]
     fn test_parse_primary_expression() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
 
         let tokens = tokenize("!true");
         let result = UnaryExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(false));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(false));
                 assert_eq!(endex, 3);
             },
             Error(_) => assert!(false),
@@ -109,7 +110,7 @@ mod tests {
         let result = UnaryExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(-2.2));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(-2.2));
                 assert_eq!(endex, 5);
             },
             Error(_) => assert!(false),
@@ -120,7 +121,7 @@ mod tests {
         let result = UnaryExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                let value = eval.eval(&mut variables);
+                let value = eval.eval(&mut variables, &functions);
                 assert!(value.is_err());
                 assert_eq!(endex, 5);
             },

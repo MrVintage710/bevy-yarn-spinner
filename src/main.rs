@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fs::read_to_string, io::Write};
 
-use parcer::{parse, YarnParseResult};
+use parcer::{parse_expression, YarnParseResult, YarnFunctionMap};
 use token::tokenize;
 
 use crate::{parcer::{YarnVariableMap, }};
@@ -13,6 +13,7 @@ mod parcer;
 fn main() {
     let mut source = String::new();
     let mut variables = YarnVariableMap::new();
+    let functions = YarnFunctionMap::new();
     //let mut result = YarnParseResult::Failed;
 
     loop {
@@ -23,10 +24,11 @@ fn main() {
         if command == "source" {
             source = String::new();
             let tokens = source_mode(&mut source);
-            let result = parse(&tokens);
+            println!("{:?}", tokens);
+            let result = parse_expression(&tokens);
             match result {
                 YarnParseResult::Parsed(eval, _) => {
-                    match eval.eval(&mut variables) {
+                    match eval.eval(&mut variables, &functions) {
                         Ok(value) => println!("{:?}", value),
                         Err(error) => println!("Runtime Err | {}", error.gen_error_message()),
                     }

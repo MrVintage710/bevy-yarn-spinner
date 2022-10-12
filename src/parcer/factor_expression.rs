@@ -2,7 +2,7 @@ use std::result;
 
 use crate::{error::{YarnResult, YarnError}, value::YarnValue, token::{YarnTokenQueue, YarnTokenType}};
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, unary_expression::UnaryExpressionNode, primary_expression::YarnValueType, YarnParseResult::{*, self}};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, unary_expression::UnaryExpressionNode, primary_expression::YarnValueType, YarnParseResult::{*, self}, YarnFunctionMap};
 
 pub enum FactorOperator {
     MUL,
@@ -34,9 +34,9 @@ impl FactorExpressionNode {
 }
 
 impl YarnEvaluator for FactorExpressionNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> YarnResult<Option<YarnValue>> {
-        let lhs_value = self.lhs.eval(variables);
-        let rhs_value = self.rhs.eval(variables);
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> YarnResult<Option<YarnValue>> {
+        let lhs_value = self.lhs.eval(variables, functions);
+        let rhs_value = self.rhs.eval(variables, functions);
 
         if lhs_value.is_ok() && rhs_value.is_ok() {
             let lhs_value = lhs_value.unwrap();
@@ -68,7 +68,7 @@ impl YarnEvaluator for FactorExpressionNode {
     }
 }
 
-impl YarnParser for FactorExpressionNode {
+impl YarnExpressionParser for FactorExpressionNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         let lhs = UnaryExpressionNode::parse(tokens, offset);
         if let Parsed(lhs_eval, lhs_endex) = lhs {
@@ -98,12 +98,13 @@ mod tests {
 
     use std::env::var;
 
-    use crate::token::tokenize;
+    use crate::{token::tokenize, parcer::YarnFunctionMap};
 
     use super::*;
 
     #[test]
     fn test_parse_variable_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
         variables.insert("test".to_string(), YarnValue::BOOL(true));
 
@@ -111,7 +112,7 @@ mod tests {
         let result = FactorExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(4.0));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(4.0));
                 assert_eq!(endex, 6);
             },
             Error(_) => assert!(false),
@@ -122,7 +123,7 @@ mod tests {
         let result = FactorExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(1.0));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(1.0));
                 assert_eq!(endex, 6);
             },
             Error(_) => assert!(false),
@@ -133,7 +134,7 @@ mod tests {
         let result = FactorExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(true));
                 assert_eq!(endex, 2);
             },
             Error(_) => assert!(false),
@@ -144,7 +145,7 @@ mod tests {
         let result = FactorExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(false));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(false));
                 assert_eq!(endex, 3);
             },
             Error(_) => assert!(false),
@@ -155,7 +156,7 @@ mod tests {
         let result = FactorExpressionNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert!(eval.eval(&mut variables).is_err());
+                assert!(eval.eval(&mut variables, &functions).is_err());
                 assert_eq!(endex, 6);
             },
             Error(_) => assert!(false),

@@ -1,6 +1,6 @@
 use crate::{value::{YarnValue, self}, token::{YarnTokenQueue, YarnTokenType::{*, self}, self}, error::{YarnError, YarnResult} };
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnParseResult::{*, self}};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, YarnParseResult::{*, self}, YarnFunctionMap};
 
 
 pub struct StringLiteralNode {
@@ -18,12 +18,12 @@ impl StringLiteralNode {
 }
 
 impl YarnEvaluator for StringLiteralNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> Result<Option<YarnValue>, YarnError> {
         Ok(Some(YarnValue::STRING(self.value.clone())))
     }
 }
 
-impl YarnParser for StringLiteralNode {
+impl YarnExpressionParser for StringLiteralNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         if tokens.check_index(offset, YarnTokenType::QUOTATION) {
             let mut cursor = 1;
@@ -66,13 +66,14 @@ mod tests {
 
     #[test]
     fn test_parse_string_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
 
         let tokens = tokenize("\"test\"");
         let result = StringLiteralNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test".to_string()));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::STRING("test".to_string()));
                 assert_eq!(endex, 4)
             },
             Error(_) => assert!(false),
@@ -83,7 +84,7 @@ mod tests {
         let result = StringLiteralNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test\"".to_string()));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::STRING("test\"".to_string()));
                 assert_eq!(endex, 6)
             },
             Error(_) => assert!(false),
@@ -94,7 +95,7 @@ mod tests {
         let result = StringLiteralNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::STRING("test with multiple words".to_string()));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::STRING("test with multiple words".to_string()));
                 assert_eq!(endex, 10)
             },
             Error(_) => assert!(false),

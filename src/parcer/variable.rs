@@ -1,6 +1,6 @@
 use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType}, error::{YarnError, YarnResult}};
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnTokenType::*, YarnParseResult::{*, self}};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, YarnTokenType::*, YarnParseResult::{*, self}, YarnFunctionMap};
 
 
 pub struct VariableNode {
@@ -24,7 +24,7 @@ impl VariableNode {
 }
 
 impl YarnEvaluator for VariableNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> Result<Option<YarnValue>, YarnError> {
         if let Some(var) = variables.get(self.identifier.as_str()) {
             Ok(Some(var.clone()))
         } else {
@@ -33,7 +33,7 @@ impl YarnEvaluator for VariableNode {
     }
 }
 
-impl YarnParser for VariableNode {
+impl YarnExpressionParser for VariableNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         if tokens.check_index(offset, YarnTokenType::DOLLAR_SIGN) {
             if let Some(token) = tokens.peek(offset+1) {
@@ -60,6 +60,7 @@ mod tests {
 
     #[test]
     fn test_parse_variable_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
         variables.insert("test".to_string(), YarnValue::BOOL(true));
 
@@ -67,7 +68,7 @@ mod tests {
         let result = VariableNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::BOOL(true));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::BOOL(true));
                 assert_eq!(endex, 3);
             },
             Error(_) => assert!(false),
@@ -78,7 +79,7 @@ mod tests {
         let result = VariableNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                let value = eval.eval(&mut variables);
+                let value = eval.eval(&mut variables, &functions);
                 assert!(value.is_err());
                 assert_eq!(endex, 3);
             },

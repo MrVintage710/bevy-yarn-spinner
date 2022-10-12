@@ -1,6 +1,19 @@
-title: hello_node
+title: hello_node test node
 ---
 Hello Yarn Spinner!
+
+-> This is a test Option.
+    <<if $test_variable == true>>
+        Say, I don't know you!
+    <<endif>>
+    <<jump node_2>>
+-> This is a test aswell.
+    <<set $greeting to "Hello, Yarn!">>
+===
+
+title: node_2
+---
+Gatsby: Hello Yarn Spinner!
 
 -> This is a test Option.
     <<if $test_variable == true>>

@@ -2,7 +2,7 @@ use core::num;
 
 use crate::{value::YarnValue, token::{YarnTokenQueue, YarnTokenType}, error::{YarnError}};
 
-use super::{YarnEvaluator, YarnVariableMap, YarnParser, YarnParseResult::{self, *}};
+use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, YarnParseResult::{self, *}, YarnFunctionMap};
 
 #[derive(Debug)]
 pub struct NumberLiteralNode {
@@ -26,12 +26,12 @@ impl  NumberLiteralNode {
 }
 
 impl YarnEvaluator for NumberLiteralNode {
-    fn eval(&self, variables : &mut YarnVariableMap) -> Result<Option<YarnValue>, YarnError> {
+    fn eval(&self, variables : &mut YarnVariableMap, functions : &YarnFunctionMap) -> Result<Option<YarnValue>, YarnError> {
         Ok(Some(YarnValue::NUMBER(self.value)))
     }
 }
 
-impl YarnParser for NumberLiteralNode {
+impl YarnExpressionParser for NumberLiteralNode {
     fn parse(tokens : &YarnTokenQueue, offset : usize) -> YarnParseResult {
         if let Some(integral) = tokens.peek_only_if_type(offset, YarnTokenType::WORD) {
             if integral.is_numeric() {
@@ -68,13 +68,14 @@ mod tests {
 
     #[test]
     fn test_parse_number_literal() {
+        let functions = YarnFunctionMap::new();
         let mut variables = YarnVariableMap::new();
 
         let tokens = tokenize("2");
         let result = NumberLiteralNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(2.0));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(2.0));
                 assert_eq!(endex, 2)
             },
             Error(_) => assert!(false),
@@ -85,7 +86,7 @@ mod tests {
         let result = NumberLiteralNode::parse(&tokens, 1);
         match result {
             Parsed(eval, endex) => {
-                assert_eq!(eval.eval(&mut variables).unwrap().unwrap(), YarnValue::NUMBER(2.2));
+                assert_eq!(eval.eval(&mut variables, &functions).unwrap().unwrap(), YarnValue::NUMBER(2.2));
                 assert_eq!(endex, 4)
             },
             Error(_) => assert!(false),
