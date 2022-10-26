@@ -1,11 +1,45 @@
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialOrd)]
 pub enum YarnValue {
     STRING(String),
-    NUMBER(f32),
+    NUMBER(f64),
     BOOL(bool)
 }
 
+impl PartialEq for YarnValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::STRING(l0), Self::STRING(r0)) => l0 == r0,
+            (Self::NUMBER(l0), Self::NUMBER(r0)) => (l0 - r0) < 1e-10,
+            (Self::BOOL(l0), Self::BOOL(r0)) => l0 == r0,
+            _ => false
+        }
+    }
+}
+
 impl YarnValue {
+    
+    pub fn get_type_as_string(&self) -> &str {
+        match self {
+            YarnValue::STRING(_) => "STRING",
+            YarnValue::NUMBER(_) => "NUMBER",
+            YarnValue::BOOL(_) => "BOOL",
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            YarnValue::NUMBER(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            YarnValue::NUMBER(num) => Some(*num),
+            _ => None,
+        }
+    }
+
     pub fn is_equal(&self, other : &YarnValue) -> Option<YarnValue> {
         match self {
             YarnValue::STRING(s1) => {
@@ -217,7 +251,7 @@ impl YarnValue {
 
 impl From<&str> for YarnValue {
     fn from(value : &str) -> Self {
-        let number_value = value.parse::<f32>();
+        let number_value = value.parse::<f64>();
         if value == "true" {
             YarnValue::BOOL(true)
         } else if value == "false" {

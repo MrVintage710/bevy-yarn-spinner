@@ -164,6 +164,7 @@ pub enum YarnTokenType {
     ENDIF,
     QUOTATION,
     PERIOD,
+    COMMA,
     BANG,
     HASHTAG,
     LEFT_PAREN,
@@ -182,7 +183,7 @@ pub enum YarnTokenType {
     DOLLAR_SIGN
 }
 
-const TOKEN_MAP : [(YarnTokenType, &'static str); 22] = [
+const TOKEN_MAP : [(YarnTokenType, &'static str); 23] = [
     (YarnTokenType::COLON, ":"),
     (YarnTokenType::SPACE, " "),
     (YarnTokenType::IF, "if"),
@@ -190,6 +191,7 @@ const TOKEN_MAP : [(YarnTokenType, &'static str); 22] = [
     (YarnTokenType::END, "end"),
     (YarnTokenType::QUOTATION, "\""),
     (YarnTokenType::PERIOD, "."),
+    (YarnTokenType::COMMA, ","),
     (YarnTokenType::LESS_THAN, "<"),
     (YarnTokenType::GREATER_THAN, ">"),
     (YarnTokenType::EQUAL, "="),

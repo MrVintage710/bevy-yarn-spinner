@@ -37,7 +37,7 @@ impl YarnExpressionParser for BoolLiteralNode {
                         Parsed(BoolLiteralNode::new_boxed(false), offset + 1)
                     }
                 } else {
-                    Error(YarnError::new_invalid_boolean_error(token.line(), token.col()))
+                    Failed
                 }
             } else {
                 Failed

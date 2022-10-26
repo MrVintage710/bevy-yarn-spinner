@@ -1,5 +1,5 @@
 use crate::{error::{YarnResult, YarnError}, token::{YarnTokenQueue, self, YarnTokenType}};
-use super::{YarnExpressionParser, variable::VariableNode, string_literal::StringLiteralNode, number_literal::NumberLiteralNode, YarnParseResult::{*, self}, bool_literal::BoolLiteralNode, equality_expression::EqualityExpressionNode};
+use super::{YarnExpressionParser, variable::VariableNode, string_literal::StringLiteralNode, number_literal::NumberLiteralNode, YarnParseResult::{*, self}, bool_literal::BoolLiteralNode, equality_expression::EqualityExpressionNode, function::FunctionNode};
 
 pub struct PrimaryExpressionNode;
 
@@ -34,6 +34,12 @@ impl YarnExpressionParser for PrimaryExpressionNode {
         match bool_eval {
             Failed => {},
             _ => { return bool_eval }
+        }
+
+        let function_eval = FunctionNode::parse(tokens, offset);
+        match function_eval {
+            Failed => {},
+            _ => { return function_eval }
         }
 
         if tokens.check_index(offset, YarnTokenType::LEFT_PAREN) {

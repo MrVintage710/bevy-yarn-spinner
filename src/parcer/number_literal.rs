@@ -6,17 +6,17 @@ use super::{YarnEvaluator, YarnVariableMap, YarnExpressionParser, YarnParseResul
 
 #[derive(Debug)]
 pub struct NumberLiteralNode {
-    value : f32
+    value : f64
 }
 
 impl  NumberLiteralNode {
-    pub fn new(value : f32) -> NumberLiteralNode {
+    pub fn new(value : f64) -> NumberLiteralNode {
         NumberLiteralNode {
             value
         }
     }
 
-    pub fn new_boxed(value : f32) -> Box<NumberLiteralNode> {
+    pub fn new_boxed(value : f64) -> Box<NumberLiteralNode> {
         Box::new(
             NumberLiteralNode {
                 value
@@ -50,7 +50,7 @@ impl YarnExpressionParser for NumberLiteralNode {
                     }
                 }
 
-                let eval = NumberLiteralNode::new_boxed(value.parse::<f32>().unwrap());
+                let eval = NumberLiteralNode::new_boxed(value.parse::<f64>().unwrap());
                 return Parsed(eval, offset+len);
             }
         }

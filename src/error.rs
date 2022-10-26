@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use crate::value::YarnValue;
+
 pub type YarnResult<T> = Result<T, YarnError>;
 
 #[derive(Clone)]
@@ -84,6 +86,42 @@ impl YarnError {
         YarnError { 
             error_name: "Unexpected Token Error".to_string(), 
             error_message: "While parsing, the system ran into an unexpected token.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_undefined_function_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Undefined Function Error".to_string(), 
+            error_message: "This function has not been defined.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_null_function_arg_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Null Function Argument Error".to_string(), 
+            error_message: "The function argument is null.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_failed_to_parse_arg_error(line : usize, col : usize) -> Self {
+        YarnError { 
+            error_name: "Failed to Parse Argument Error".to_string(), 
+            error_message: "This argument in the function failed to parse.".to_string(), 
+            col, 
+            line
+        }
+    }
+
+    pub fn new_type_mismatch_error(line : usize, col : usize, type_expected : &str, type_recieved : &str) -> Self {
+        YarnError { 
+            error_name: "Type Mismatch Error".to_string(), 
+            error_message: format!("The value is the wrong type. Type expected: {} | Type received: {}", type_expected, type_recieved), 
             col, 
             line
         }
